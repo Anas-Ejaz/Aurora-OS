@@ -67,7 +67,7 @@ public class MainScreen extends JFrame {
         text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
         text.setOpaque(false);
 
-        JLabel title = new JLabel("CPU Scheduling Simulator");
+        JLabel title = new JLabel("Aurora OS");
         title.setFont(new Font("SansSerif", Font.BOLD, 20));
         title.setForeground(WHITE);
 
