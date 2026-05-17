@@ -2,11 +2,18 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "java",
-      "name": "Run JavaFX",
-      "request": "launch",
-      "mainClass": "Main",
-      "vmArgs": "--module-path C:\\javafx\\lib --add-modules javafx.controls,javafx.fxml"
+        "type": "java",
+        "name": "DesktopMainApp",
+        "request": "launch",
+        "mainClass": "DesktopMainApp",
+        "projectName": "Aurora OS_e8872471"
+    },
+    {
+        "type": "java",
+        "name": "Run JavaFX",
+        "request": "launch",
+        "mainClass": "Main",
+        "vmArgs": "--module-path C:\\javafx\\lib --add-modules javafx.controls,javafx.fxml"
     }
-  ]
+]
 }
