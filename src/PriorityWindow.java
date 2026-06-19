@@ -4,10 +4,12 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 public class PriorityWindow extends BaseAlgorithmWindow {
 
-    // Internal data schema adjustment subclassed directly for Priority tracking configurations
     public static class PriorityProcessRecord extends ProcessData {
         private final javafx.beans.property.SimpleIntegerProperty priorityNum;
         public PriorityProcessRecord(String id, int arrival, int burst, int priorityNum) {
@@ -37,6 +39,10 @@ public class PriorityWindow extends BaseAlgorithmWindow {
         btnAdd.setStyle("-fx-background-color: #34A853; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
         formRow.getChildren().add(btnAdd);
 
+        Button btnRun = new Button("Run Simulation");
+        btnRun.setStyle("-fx-background-color: #1ABC9C; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        formRow.getChildren().add(btnRun);
+
         ganttChart = new HBox(4);
         ganttChart.setPrefHeight(60);
         ganttChart.setStyle("-fx-background-color: #2d2e31; -fx-background-radius: 6; -fx-padding: 10;");
@@ -52,8 +58,13 @@ public class PriorityWindow extends BaseAlgorithmWindow {
         colArr.setCellValueFactory(new PropertyValueFactory<>("arrivalTime"));
         TableColumn<PriorityProcessRecord, Integer> colBurst = new TableColumn<>("Burst Time");
         colBurst.setCellValueFactory(new PropertyValueFactory<>("burstTime"));
+        
+        TableColumn<PriorityProcessRecord, Integer> colWait = new TableColumn<>("Waiting Time");
+        colWait.setCellValueFactory(new PropertyValueFactory<>("waitingTime"));
+        TableColumn<PriorityProcessRecord, Integer> colTurn = new TableColumn<>("Turnaround Time");
+        colTurn.setCellValueFactory(new PropertyValueFactory<>("turnaroundTime"));
 
-        table.getColumns().addAll(colId, colPriority, colArr, colBurst);
+        table.getColumns().addAll(colId, colPriority, colArr, colBurst, colWait, colTurn);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         btnAdd.setOnAction(e -> {
@@ -64,12 +75,63 @@ public class PriorityWindow extends BaseAlgorithmWindow {
                 int pri = Integer.parseInt(txtPriority.getText());
                 
                 processList.add(new PriorityProcessRecord(id, arr, brst, pri));
-                addGanttBlock(ganttChart, id, "Pri: " + pri, "#1ABC9C");
-                
                 txtId.clear(); txtArrival.clear(); txtBurst.clear(); txtPriority.clear();
             }
         });
 
-        workspace.getChildren().addAll(new Label("Add New Process Entry with Priority Level:"), formRow, new Label("Gantt Ordered Preview:"), ganttChart, table);
+        btnRun.setOnAction(e -> {
+            if (processList.isEmpty()) return;
+            ganttChart.getChildren().clear();
+
+            List<PriorityProcessRecord> remainingList = new ArrayList<>(processList);
+            int currentTime = 0;
+
+            while (!remainingList.isEmpty()) {
+                // Find candidates that have arrived up to currentTime
+                int finalCurrentTime = currentTime;
+                List<PriorityProcessRecord> available = new ArrayList<>();
+                for (PriorityProcessRecord p : remainingList) {
+                    if (p.getArrivalTime() <= finalCurrentTime) {
+                        available.add(p);
+                    }
+                }
+
+                if (available.isEmpty()) {
+                    // CPU Idle step logic handler
+                    int nextArrival = remainingList.stream().mapToInt(ProcessData::getArrivalTime).min().orElse(currentTime);
+                    addGanttBlock(ganttChart, "IDLE", "t: " + currentTime + "-" + nextArrival, "#3c4043");
+                    currentTime = nextArrival;
+                    continue;
+                }
+
+                // Choose process based on Lower Priority Number = Higher Priority Rule
+                PriorityProcessRecord highestPriorityProcess = available.stream()
+                        .min(Comparator.comparingInt(PriorityProcessRecord::getPriorityNum)
+                                .thenComparingInt(ProcessData::getArrivalTime))
+                        .orElse(available.get(0));
+
+                int startTime = currentTime;
+                currentTime += highestPriorityProcess.getBurstTime();
+
+                int tat = currentTime - highestPriorityProcess.getArrivalTime();
+                int wt = tat - highestPriorityProcess.getBurstTime();
+
+                highestPriorityProcess.waitingTimeProperty().set(wt);
+                highestPriorityProcess.turnaroundTimeProperty().set(tat);
+
+                addGanttBlock(ganttChart, highestPriorityProcess.getId(), "t: " + startTime + "-" + currentTime, "#1ABC9C");
+                remainingList.remove(highestPriorityProcess);
+            }
+            table.refresh();
+        });
+
+        Label lblInputTitle = new Label("Add New Process Entry with Priority Level:");
+        lblInputTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+
+        Label lblGanttTitle = new Label("Gantt Ordered Preview:");
+        lblGanttTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+
+        // Pass the updated white label objects to the layout workspace
+        workspace.getChildren().addAll(lblInputTitle, formRow, lblGanttTitle, ganttChart, table);
     }
 }

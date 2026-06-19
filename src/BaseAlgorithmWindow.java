@@ -31,25 +31,28 @@ public abstract class BaseAlgorithmWindow extends StackPane {
 
         // Title Bar
         HBox titleBar = new HBox(8);
-        titleBar.setAlignment(Pos.CENTER_LEFT);
+        titleBar.setAlignment(Pos.CENTER_LEFT); // Keeps text left-aligned
         titleBar.setPadding(new Insets(10, 15, 10, 15));
         titleBar.setStyle("-fx-background-color: #2d2e31; -fx-background-radius: 10 10 0 0;");
 
-        // System Buttons
-        Button closeBtn = createCircleControl("#EA4335");
-        Button maxBtn = createCircleControl("#34A853");
-
-        closeBtn.setOnAction(e -> parentContainer.getChildren().remove(this));
-        maxBtn.setOnAction(e -> toggleMaximize());
-
+        // Window Title Label
         Label titleLabel = new Label(windowTitle);
         titleLabel.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 13));
         titleLabel.setTextFill(Color.WHITE);
 
+        // Spacer pushes everything after it (the buttons) all the way to the right side
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        titleBar.getChildren().addAll(closeBtn, maxBtn, spacer, titleLabel);
+        // System Buttons (Placed on the right)
+        Button maxBtn = createCircleControl("#34A853");
+        Button closeBtn = createCircleControl("#EA4335");
+
+        closeBtn.setOnAction(e -> parentContainer.getChildren().remove(this));
+        maxBtn.setOnAction(e -> toggleMaximize());
+
+        // Reordered children layout: Title -> Spacer -> Max Button -> Close Button
+        titleBar.getChildren().addAll(titleLabel, spacer, maxBtn, closeBtn);
 
         // Workspace for children to populate
         workspace = new VBox(20);

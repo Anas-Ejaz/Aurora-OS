@@ -6,6 +6,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import SystemMonitor.SystemMonitorWindow;
 
 public class DesktopMainApp extends Application {
 
@@ -27,15 +28,16 @@ public class DesktopMainApp extends Application {
         desktopLayoutContainer.setAlignment(Pos.BOTTOM_CENTER);
         desktopLayoutContainer.getChildren().add(systemTaskbar);
 
-        // Updated button names as per your request
         Button btnSchedulings = createDesktopSystemButton("Schedulings", "#0078d4");
-        Button btnApps = createDesktopSystemButton("Applications", "#0078d4");
+        Button btnApps = createDesktopSystemButton("System Monitor", "#0078d4");
         Button btnPowerOff = createDesktopSystemButton("Power Off", "#d13438");
 
+        // Click Action Triggers
         btnSchedulings.setOnAction(e -> triggerSchedulingsOverlay());
+        btnApps.setOnAction(e -> triggerSystemMonitorWindow()); // Now dynamically fires your teacher's assignment directly!
         btnPowerOff.setOnAction(e -> Platform.exit());
 
-        systemTaskbar.getChildren().addAll(btnSchedulings,btnApps, btnPowerOff);
+        systemTaskbar.getChildren().addAll(btnSchedulings, btnApps, btnPowerOff);
         mainDesktopCanvas.getChildren().add(desktopLayoutContainer);
 
         Scene mainScene = new Scene(mainDesktopCanvas, 1100, 750);
@@ -55,6 +57,14 @@ public class DesktopMainApp extends Application {
         AppLauncherOverlay overlayMenu = new AppLauncherOverlay(mainDesktopCanvas);
         if(mainDesktopCanvas.getChildren().stream().noneMatch(node -> node instanceof AppLauncherOverlay)) {
             mainDesktopCanvas.getChildren().add(overlayMenu);
+        }
+    }
+
+    private void triggerSystemMonitorWindow() {
+        SystemMonitorWindow monitorWindow = new SystemMonitorWindow(mainDesktopCanvas);
+        // Avoid opening duplicate system window shells if one is already open
+        if(mainDesktopCanvas.getChildren().stream().noneMatch(node -> node instanceof SystemMonitorWindow)) {
+            mainDesktopCanvas.getChildren().add(monitorWindow);
         }
     }
 
