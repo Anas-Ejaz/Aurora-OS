@@ -7,6 +7,8 @@ import javafx.scene.control.Button;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import SystemMonitor.SystemMonitorWindow;
+import CoreOSModules.ModulesOverlay;
+import Schedulings.AppLauncherOverlay;
 
 public class DesktopMainApp extends Application {
 
@@ -28,22 +30,34 @@ public class DesktopMainApp extends Application {
         desktopLayoutContainer.setAlignment(Pos.BOTTOM_CENTER);
         desktopLayoutContainer.getChildren().add(systemTaskbar);
 
+        // --- BUTTONS ---
         Button btnSchedulings = createDesktopSystemButton("Schedulings", "#0078d4");
+        Button btnModules = createDesktopSystemButton("Core Modules", "#0078d4"); // NAYA BUTTON
         Button btnApps = createDesktopSystemButton("System Monitor", "#0078d4");
         Button btnPowerOff = createDesktopSystemButton("Power Off", "#d13438");
 
-        // Click Action Triggers
+        // --- ACTIONS ---
         btnSchedulings.setOnAction(e -> triggerSchedulingsOverlay());
-        btnApps.setOnAction(e -> triggerSystemMonitorWindow()); // Now dynamically fires your teacher's assignment directly!
+        btnModules.setOnAction(e -> triggerModulesOverlay()); // NAYA ACTION
+        btnApps.setOnAction(e -> triggerSystemMonitorWindow());
         btnPowerOff.setOnAction(e -> Platform.exit());
 
-        systemTaskbar.getChildren().addAll(btnSchedulings, btnApps, btnPowerOff);
+        // Buttons ko taskbar mein add karna (Modules ko center mein rakha hai)
+        systemTaskbar.getChildren().addAll(btnSchedulings, btnModules, btnApps, btnPowerOff);
         mainDesktopCanvas.getChildren().add(desktopLayoutContainer);
 
         Scene mainScene = new Scene(mainDesktopCanvas, 1100, 750);
-        primaryStage.setTitle("Desktop Simulator Environment");
+        primaryStage.setTitle("OS Simulator Desktop");
         primaryStage.setScene(mainScene);
         primaryStage.show();
+    }
+
+    // NAYA FUNCTION: Modules Overlay kholne ke liye
+    private void triggerModulesOverlay() {
+        ModulesOverlay modulesMenu = new ModulesOverlay(mainDesktopCanvas);
+        if(mainDesktopCanvas.getChildren().stream().noneMatch(node -> node instanceof ModulesOverlay)) {
+            mainDesktopCanvas.getChildren().add(modulesMenu);
+        }
     }
 
     private Button createDesktopSystemButton(String title, String accentColor) {
@@ -62,7 +76,6 @@ public class DesktopMainApp extends Application {
 
     private void triggerSystemMonitorWindow() {
         SystemMonitorWindow monitorWindow = new SystemMonitorWindow(mainDesktopCanvas);
-        // Avoid opening duplicate system window shells if one is already open
         if(mainDesktopCanvas.getChildren().stream().noneMatch(node -> node instanceof SystemMonitorWindow)) {
             mainDesktopCanvas.getChildren().add(monitorWindow);
         }

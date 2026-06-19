@@ -1,3 +1,4 @@
+package Schedulings;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -8,20 +9,20 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-public class FCFSWindow extends BaseAlgorithmWindow {
+public class SJFWindow extends BaseAlgorithmWindow {
 
     private final ObservableList<ProcessData> processList = FXCollections.observableArrayList();
     private final HBox ganttChart;
 
-    public FCFSWindow(StackPane parentContainer) {
-        super("First-Come, First-Served (FCFS)", parentContainer);
+    @SuppressWarnings("unchecked")
+    public SJFWindow(StackPane parentContainer) {
+        super("Shortest Job First (SJF) - Non-Preemptive Simulation", parentContainer);
 
-        // Input Form Panel
         HBox formRow = new HBox(10);
         formRow.setPadding(new Insets(5, 0, 5, 0));
         
-        TextField txtId = createInputField(formRow, "PID (e.g. P1)", 100);
-        TextField txtArrival = createInputField(formRow, "Arrival Time", 120);
+        TextField txtId = createInputField(formRow, "PID", 100);
+        TextField txtArrival = createInputField(formRow, "Arrival", 120);
         TextField txtBurst = createInputField(formRow, "Burst Time", 120);
 
         Button btnAdd = new Button("Add Process");
@@ -29,17 +30,14 @@ public class FCFSWindow extends BaseAlgorithmWindow {
         formRow.getChildren().add(btnAdd);
 
         Button btnRun = new Button("Run Simulation");
-        btnRun.setStyle("-fx-background-color: #4285F4; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnRun.setStyle("-fx-background-color: #EA4335; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
         formRow.getChildren().add(btnRun);
 
-        // Gantt View Container
         ganttChart = new HBox(4);
         ganttChart.setPrefHeight(60);
         ganttChart.setStyle("-fx-background-color: #2d2e31; -fx-background-radius: 6; -fx-padding: 10;");
 
-        // Metrics Table View
         TableView<ProcessData> table = new TableView<>(processList);
-        table.setStyle("-fx-background-color: #202124;");
         VBox.setVgrow(table, Priority.ALWAYS);
 
         TableColumn<ProcessData, String> colId = new TableColumn<>("Process ID");
@@ -57,7 +55,6 @@ public class FCFSWindow extends BaseAlgorithmWindow {
         table.getColumns().addAll(colId, colArr, colBurst, colWait, colTurn);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        // Add Action Control Logic
         btnAdd.setOnAction(e -> {
             if (!txtId.getText().isEmpty() && !txtArrival.getText().isEmpty() && !txtBurst.getText().isEmpty()) {
                 String id = txtId.getText();
@@ -73,33 +70,42 @@ public class FCFSWindow extends BaseAlgorithmWindow {
             if (processList.isEmpty()) return;
             ganttChart.getChildren().clear();
 
-            List<ProcessData> sortedProcesses = new ArrayList<>(processList);
-            sortedProcesses.sort(Comparator.comparingInt(ProcessData::getArrivalTime));
-
+            List<ProcessData> remainingList = new ArrayList<>(processList);
             int currentTime = 0;
-            for (ProcessData p : sortedProcesses) {
-                if (currentTime < p.getArrivalTime()) {
-                    int idleTime = p.getArrivalTime() - currentTime;
-                    addGanttBlock(ganttChart, "IDLE", "t: " + currentTime + "-" + p.getArrivalTime(), "#3c4043");
-                    currentTime = p.getArrivalTime();
+
+            while (!remainingList.isEmpty()) {
+                int finalCurrentTime = currentTime;
+                List<ProcessData> readyQueue = new ArrayList<>();
+                for (ProcessData p : remainingList) {
+                    if (p.getArrivalTime() <= finalCurrentTime) {
+                        readyQueue.add(p);
+                    }
                 }
-                
+
+                if (readyQueue.isEmpty()) {
+                    int nextArrival = remainingList.stream().mapToInt(ProcessData::getArrivalTime).min().orElse(currentTime);
+                    addGanttBlock(ganttChart, "IDLE", "t: " + currentTime + "-" + nextArrival, "#3c4043");
+                    currentTime = nextArrival;
+                    continue;
+                }
+
+                // Non-preemptive shortest burst selector boundary
+                ProcessData shortestJob = readyQueue.stream()
+                        .min(Comparator.comparingInt(ProcessData::getBurstTime)
+                                .thenComparingInt(ProcessData::getArrivalTime))
+                        .orElse(readyQueue.get(0));
+
                 int startTime = currentTime;
-                currentTime += p.getBurstTime();
-                
-                int tat = currentTime - p.getArrivalTime();
-                int wt = tat - p.getBurstTime();
+                currentTime += shortestJob.getBurstTime();
 
-                // Reflect computed calculation metrics back into table model properties
-                processList.stream()
-                        .filter(pr -> pr.getId().equals(p.getId()))
-                        .findFirst()
-                        .ifPresent(pr -> {
-                            pr.waitingTimeProperty().set(wt);
-                            pr.turnaroundTimeProperty().set(tat);
-                        });
+                int tat = currentTime - shortestJob.getArrivalTime();
+                int wt = tat - shortestJob.getBurstTime();
 
-                addGanttBlock(ganttChart, p.getId(), "t: " + startTime + "-" + currentTime, "#4285F4");
+                shortestJob.waitingTimeProperty().set(wt);
+                shortestJob.turnaroundTimeProperty().set(tat);
+
+                addGanttBlock(ganttChart, shortestJob.getId(), "t: " + startTime + "-" + currentTime, "#EA4335");
+                remainingList.remove(shortestJob);
             }
             table.refresh();
         });
@@ -107,10 +113,10 @@ public class FCFSWindow extends BaseAlgorithmWindow {
         Label lblInputTitle = new Label("Add New Process Entry:");
         lblInputTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
 
-        Label lblGanttTitle = new Label("Gantt Sequence Preview:");
+        Label lblGanttTitle = new Label("Gantt Timeline Snapshot:");
         lblGanttTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
 
-        // Add the white-colored label objects to the workspace instead of plain strings
+        // Pass the updated white label objects to your workspace container layout
         workspace.getChildren().addAll(lblInputTitle, formRow, lblGanttTitle, ganttChart, table);
     }
 }
