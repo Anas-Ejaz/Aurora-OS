@@ -1,7 +1,9 @@
 package Schedulings;
+
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
@@ -9,105 +11,119 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import Process.ProcessData;
+
 public class PriorityWindow extends BaseAlgorithmWindow {
 
-    public static class PriorityProcessRecord extends ProcessData {
-        private final javafx.beans.property.SimpleIntegerProperty priorityNum;
-        public PriorityProcessRecord(String id, int arrival, int burst, int priorityNum) {
-            super(id, arrival, burst, 0, 0);
-            this.priorityNum = new javafx.beans.property.SimpleIntegerProperty(priorityNum);
-        }
-        public int getPriorityNum() { return priorityNum.get(); }
-        public javafx.beans.property.SimpleIntegerProperty priorityNumProperty() { return priorityNum; }
-    }
-
-    private final ObservableList<PriorityProcessRecord> processList = FXCollections.observableArrayList();
+    // Central core list ke sath mapping karne ke liye local reactive list
+    private final ObservableList<ProcessData> localProcessList = FXCollections.observableArrayList();
     private final HBox ganttChart;
+    private final TableView<ProcessData> table;
 
     @SuppressWarnings("unchecked")
     public PriorityWindow(StackPane parentContainer) {
-        super("Priority Scheduling Space", parentContainer);
+        super("Priority Scheduling Space (Non-Preemptive)", parentContainer);
 
-        HBox formRow = new HBox(10);
-        formRow.setPadding(new Insets(5, 0, 5, 0));
-        
-        TextField txtId = createInputField(formRow, "PID", 90);
-        TextField txtArrival = createInputField(formRow, "Arrival", 100);
-        TextField txtBurst = createInputField(formRow, "Burst Time", 100);
-        TextField txtPriority = createInputField(formRow, "Priority Value", 110);
+        // --- STEP 1: CENTRAL SYNC CONTROL ROW ---
+        HBox controlRow = new HBox(15);
+        controlRow.setAlignment(Pos.CENTER_LEFT);
+        controlRow.setPadding(new Insets(5, 0, 5, 0));
 
-        Button btnAdd = new Button("Add Process");
-        btnAdd.setStyle("-fx-background-color: #34A853; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        formRow.getChildren().add(btnAdd);
+        Button btnSync = new Button("🔄 Load Central Processes");
+        btnSync.setStyle("-fx-background-color: #34A853; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 15 8 15;");
 
-        Button btnRun = new Button("Run Simulation");
-        btnRun.setStyle("-fx-background-color: #1ABC9C; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        formRow.getChildren().add(btnRun);
+        Button btnRun = new Button("🚀 Run Simulation");
+        btnRun.setStyle("-fx-background-color: #1ABC9C; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 15 8 15;");
 
-        ganttChart = new HBox(4);
-        ganttChart.setPrefHeight(60);
-        ganttChart.setStyle("-fx-background-color: #2d2e31; -fx-background-radius: 6; -fx-padding: 10;");
+        Label lblStatus = new Label("Ready to parse priority sequences from global PCB pool.");
+        lblStatus.setStyle("-fx-text-fill: #9aa0a6; -fx-font-family: 'Segoe UI'; -fx-font-size: 13px;");
 
-        TableView<PriorityProcessRecord> table = new TableView<>(processList);
+        controlRow.getChildren().addAll(btnSync, btnRun, lblStatus);
+
+        // --- STEP 2: GANTT VIEW CONTAINER ---
+        ganttChart = new HBox(6);
+        ganttChart.setPrefHeight(65);
+        ganttChart.setAlignment(Pos.CENTER_LEFT);
+        ganttChart.setStyle("-fx-background-color: #2d2e31; -fx-background-radius: 6; -fx-padding: 10; -fx-border-color: #3c4043; -fx-border-width: 1;");
+
+        // --- STEP 3: METRICS TABLE VIEW ---
+        table = new TableView<>(localProcessList);
+        table.setStyle("-fx-background-color: #202124; -fx-border-color: #3c4043; -fx-border-radius: 4;");
         VBox.setVgrow(table, Priority.ALWAYS);
 
-        TableColumn<PriorityProcessRecord, String> colId = new TableColumn<>("Process ID");
+        TableColumn<ProcessData, String> colId = new TableColumn<>("Process ID");
         colId.setCellValueFactory(new PropertyValueFactory<>("id"));
-        TableColumn<PriorityProcessRecord, Integer> colPriority = new TableColumn<>("Priority");
-        colPriority.setCellValueFactory(new PropertyValueFactory<>("priorityNum"));
-        TableColumn<PriorityProcessRecord, Integer> colArr = new TableColumn<>("Arrival Time");
+        
+        TableColumn<ProcessData, Integer> colPriority = new TableColumn<>("Priority Level");
+        colPriority.setCellValueFactory(new PropertyValueFactory<>("priority"));
+        
+        TableColumn<ProcessData, Integer> colArr = new TableColumn<>("Arrival Time");
         colArr.setCellValueFactory(new PropertyValueFactory<>("arrivalTime"));
-        TableColumn<PriorityProcessRecord, Integer> colBurst = new TableColumn<>("Burst Time");
+        
+        TableColumn<ProcessData, Integer> colBurst = new TableColumn<>("Burst Time");
         colBurst.setCellValueFactory(new PropertyValueFactory<>("burstTime"));
         
-        TableColumn<PriorityProcessRecord, Integer> colWait = new TableColumn<>("Waiting Time");
+        TableColumn<ProcessData, Integer> colWait = new TableColumn<>("Waiting Time");
         colWait.setCellValueFactory(new PropertyValueFactory<>("waitingTime"));
-        TableColumn<PriorityProcessRecord, Integer> colTurn = new TableColumn<>("Turnaround Time");
+        
+        TableColumn<ProcessData, Integer> colTurn = new TableColumn<>("Turnaround Time");
         colTurn.setCellValueFactory(new PropertyValueFactory<>("turnaroundTime"));
 
         table.getColumns().addAll(colId, colPriority, colArr, colBurst, colWait, colTurn);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        btnAdd.setOnAction(e -> {
-            if (!txtId.getText().isEmpty() && !txtArrival.getText().isEmpty() && !txtBurst.getText().isEmpty() && !txtPriority.getText().isEmpty()) {
-                String id = txtId.getText();
-                int arr = Integer.parseInt(txtArrival.getText());
-                int brst = Integer.parseInt(txtBurst.getText());
-                int pri = Integer.parseInt(txtPriority.getText());
-                
-                processList.add(new PriorityProcessRecord(id, arr, brst, pri));
-                txtId.clear(); txtArrival.clear(); txtBurst.clear(); txtPriority.clear();
+        // --- STEP 4: ACTION SYNC & ENGINE LOGIC ---
+
+        // Central pool se instances pull karne ka sync layout action
+        btnSync.setOnAction(e -> {
+            localProcessList.clear();
+            ganttChart.getChildren().clear();
+            
+            if (ProcessData.getMasterList().isEmpty()) {
+                lblStatus.setText("❌ Master List Empty! Add processes via Process Manager on Desktop.");
+                lblStatus.setStyle("-fx-text-fill: #EA4335;");
+                return;
             }
+
+            for (ProcessData p : ProcessData.getMasterList()) {
+                // Global repository se data direct properties model mein map ho raha hai
+                localProcessList.add(new ProcessData(p.getId(), p.getArrivalTime(), p.getBurstTime(), p.getPriority(), 0, 0));
+            }
+            lblStatus.setText("✅ Synchronized " + localProcessList.size() + " priority execution models.");
+            lblStatus.setStyle("-fx-text-fill: #34A853;");
         });
 
+        // Priority Engine Loop Context
         btnRun.setOnAction(e -> {
-            if (processList.isEmpty()) return;
+            if (localProcessList.isEmpty()) {
+                lblStatus.setText("❌ No tracking matrix found. Pull data using central button first.");
+                lblStatus.setStyle("-fx-text-fill: #EA4335;");
+                return;
+            }
             ganttChart.getChildren().clear();
 
-            List<PriorityProcessRecord> remainingList = new ArrayList<>(processList);
+            List<ProcessData> remainingList = new ArrayList<>(localProcessList);
             int currentTime = 0;
 
             while (!remainingList.isEmpty()) {
-                // Find candidates that have arrived up to currentTime
                 int finalCurrentTime = currentTime;
-                List<PriorityProcessRecord> available = new ArrayList<>();
-                for (PriorityProcessRecord p : remainingList) {
+                List<ProcessData> available = new ArrayList<>();
+                for (ProcessData p : remainingList) {
                     if (p.getArrivalTime() <= finalCurrentTime) {
                         available.add(p);
                     }
                 }
 
                 if (available.isEmpty()) {
-                    // CPU Idle step logic handler
                     int nextArrival = remainingList.stream().mapToInt(ProcessData::getArrivalTime).min().orElse(currentTime);
                     addGanttBlock(ganttChart, "IDLE", "t: " + currentTime + "-" + nextArrival, "#3c4043");
                     currentTime = nextArrival;
                     continue;
                 }
 
-                // Choose process based on Lower Priority Number = Higher Priority Rule
-                PriorityProcessRecord highestPriorityProcess = available.stream()
-                        .min(Comparator.comparingInt(PriorityProcessRecord::getPriorityNum)
+                // Rule: Lower Priority Number = Higher Executive Preference
+                ProcessData highestPriorityProcess = available.stream()
+                        .min(Comparator.comparingInt(ProcessData::getPriority)
                                 .thenComparingInt(ProcessData::getArrivalTime))
                         .orElse(available.get(0));
 
@@ -124,15 +140,31 @@ public class PriorityWindow extends BaseAlgorithmWindow {
                 remainingList.remove(highestPriorityProcess);
             }
             table.refresh();
+            lblStatus.setText("⚡ Simulation completed execution using Priority evaluation rule.");
+            lblStatus.setStyle("-fx-text-fill: #1ABC9C;");
         });
 
-        Label lblInputTitle = new Label("Add New Process Entry with Priority Level:");
-        lblInputTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+        // --- STEP 5: VISUAL CLEAN HIGHLIGHTED HEADERS ---
+        Label lblActionTitle = new Label("Execution Control Desk:");
+        lblActionTitle.setStyle("-fx-text-fill: white; -fx-font-family: 'Segoe UI'; -fx-font-size: 14px; -fx-font-weight: bold;");
 
-        Label lblGanttTitle = new Label("Gantt Ordered Preview:");
-        lblGanttTitle.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+        Label lblGanttTitle = new Label("Gantt Priority Order Timeline Matrix:");
+        lblGanttTitle.setStyle("-fx-text-fill: white; -fx-font-family: 'Segoe UI'; -fx-font-size: 14px; -fx-font-weight: bold;");
 
-        // Pass the updated white label objects to the layout workspace
-        workspace.getChildren().addAll(lblInputTitle, formRow, lblGanttTitle, ganttChart, table);
+        Label lblTableTitle = new Label("Calculated Priority Performance Registry:");
+        lblTableTitle.setStyle("-fx-text-fill: white; -fx-font-family: 'Segoe UI'; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        workspace.getChildren().addAll(
+            lblActionTitle, controlRow, 
+            new Region() {{ setPrefHeight(5); }}, 
+            lblGanttTitle, ganttChart, 
+            new Region() {{ setPrefHeight(5); }}, 
+            lblTableTitle, table
+        );
+
+        // Auto fire on instantiation context
+        if (!ProcessData.getMasterList().isEmpty()) {
+            btnSync.fire();
+        }
     }
 }

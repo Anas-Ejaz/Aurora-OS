@@ -5,152 +5,310 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+
+// Aapki custom compiled model import statement
+import Process.SegmentData;
 
 public class SegmentationWindow extends BaseAlgorithmWindow {
 
-    public static class SegmentRow {
-        private final int segmentId;
-        private final String segmentName, baseAddress, limitSize;
-
-        public SegmentRow(int segmentId, String segmentName, String baseAddress, String limitSize) {
-            this.segmentId = segmentId;
-            this.segmentName = segmentName;
-            this.baseAddress = baseAddress;
-            this.limitSize = limitSize;
-        }
-
-        public int getSegmentId() { return segmentId; }
-        public String getSegmentName() { return segmentName; }
-        public String getBaseAddress() { return baseAddress; }
-        public String getLimitSize() { return limitSize; }
-    }
-
-    private final ObservableList<SegmentRow> segmentList = FXCollections.observableArrayList();
-    
-    // UI elements for execution checking
-    private final Label lblMmuStatus = new Label("Segmentation MMU Unit: IDLE (Waiting for CPU request)");
+    // Aapke structural SegmentData object array model par mapped list
+    private final ObservableList<SegmentData> segmentList = FXCollections.observableArrayList();
+    private final TableView<SegmentData> table = new TableView<>(segmentList);
+    private final VBox memoryMapContainer = new VBox(6);
+    private final TextArea logArea = new TextArea();
 
     public SegmentationWindow(StackPane parentContainer) {
         super("Core OS Module: Segment Base & Limit Address Mapping Engine", parentContainer);
 
-        // --- 1. Top Input Panel (Adding Segment Table Metadata) ---
-        HBox inputRow = new HBox(12);
-        inputRow.setAlignment(Pos.CENTER_LEFT);
+        // --- STEP 1: TOP PREMIUM CONTROLLERS ROW (POPUP WINDOW RIGS) ---
+        HBox controlRow = new HBox(12);
+        controlRow.setAlignment(Pos.CENTER_LEFT);
+        controlRow.setPadding(new Insets(5, 0, 5, 0));
 
-        TextField txtSegId = createInputField(inputRow, "Seg ID (e.g. 0)", 100);
-        TextField txtName = createInputField(inputRow, "Scope Name (e.g. Code)", 140);
-        TextField txtBase = createInputField(inputRow, "Base (Hex, e.g. 2000)", 130);
-        TextField txtLimit = createInputField(inputRow, "Limit (Hex, e.g. 0500)", 130);
+        Button btnPopupAdd = new Button("➕ Add Segment Descriptor");
+        btnPopupAdd.setStyle("-fx-background-color: #34A853; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 16 8 16;");
 
-        Button btnAddSeg = new Button("Add Segment");
-        btnAddSeg.setStyle("-fx-background-color: #FBBC05; -fx-text-fill: #202124; -fx-font-weight: bold; -fx-cursor: hand;");
-        inputRow.getChildren().add(btnAddSeg);
+        Button btnPopupTranslate = new Button("🔍 Translate Address Pointer");
+        btnPopupTranslate.setStyle("-fx-background-color: #4285F4; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 16 8 16;");
 
-        // --- 2. Live Hardware Address Translator (The Logic Simulation) ---
-        VBox mmuPanel = new VBox(12);
-        mmuPanel.setPadding(new Insets(15));
-        mmuPanel.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 10; -fx-border-color: #3c4043;");
-        
-        HBox translateInputs = new HBox(12);
-        translateInputs.setAlignment(Pos.CENTER_LEFT);
-        
-        TextField txtTargetSeg = createInputField(translateInputs, "Target Seg ID", 110);
-        TextField txtOffset = createInputField(translateInputs, "Offset (Hex, e.g. 01A0)", 150);
-        
-        Button btnTranslate = new Button("Calculate Physical Addr");
-        btnTranslate.setStyle("-fx-background-color: #4285F4; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        translateInputs.getChildren().add(btnTranslate);
+        Button btnClearCache = new Button("🗑️ Clear Cache");
+        btnClearCache.setStyle("-fx-background-color: #EA4335; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 16 8 16;");
 
-        lblMmuStatus.setStyle("-fx-text-fill: #FBBC05; -fx-font-family: 'Consolas'; -fx-font-size: 13px;");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        mmuPanel.getChildren().addAll(new Label("HARDWARE SEGMENTATION TRANSLATOR LOGIC:"), translateInputs, lblMmuStatus);
+        Label lblMmuIndicator = new Label("MMU STATUS: ACTIVE");
+        lblMmuIndicator.setStyle("-fx-text-fill: #34A853; -fx-font-family: 'Consolas'; -fx-font-weight: bold; -fx-background-color: rgba(52,168,83,0.1); -fx-padding: 6 12 6 12; -fx-background-radius: 4;");
 
-        // --- 3. UI Matrix Table View Layout ---
-        TableView<SegmentRow> table = new TableView<>(segmentList);
-        table.setStyle("-fx-background-color: #202124;");
-        VBox.setVgrow(table, Priority.ALWAYS);
+        controlRow.getChildren().addAll(btnPopupAdd, btnPopupTranslate, btnClearCache, spacer, lblMmuIndicator);
 
-        TableColumn<SegmentRow, Integer> colId = new TableColumn<>("Segment ID");
-        colId.setCellValueFactory(new PropertyValueFactory<>("segmentId"));
-        TableColumn<SegmentRow, String> colName = new TableColumn<>("Segment Name");
+        // --- STEP 2: REGISTER DATA TABLE MATRIX ---
+        table.setStyle("-fx-background-color: #202124; -fx-border-color: #3c4043; -fx-border-radius: 4;");
+        table.setPrefHeight(190);
+
+        // Map directly with your SegmentData field properties identifiers
+        TableColumn<SegmentData, String> colName = new TableColumn<>("Segment Scope Name");
         colName.setCellValueFactory(new PropertyValueFactory<>("segmentName"));
-        TableColumn<SegmentRow, String> colBase = new TableColumn<>("Base Address");
+
+        TableColumn<SegmentData, Integer> colBase = new TableColumn<>("Base Hex Address");
         colBase.setCellValueFactory(new PropertyValueFactory<>("baseAddress"));
-        TableColumn<SegmentRow, String> colLimit = new TableColumn<>("Limit Sizing Bounds");
+
+        TableColumn<SegmentData, Integer> colLimit = new TableColumn<>("Limit Size Bounds");
         colLimit.setCellValueFactory(new PropertyValueFactory<>("limitSize"));
 
-        table.getColumns().addAll(colId, colName, colBase, colLimit);
+        table.getColumns().addAll(colName, colBase, colLimit);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        // Standard Default Hardcoded Mockup Rows (Cleaned & standardized to pure hexadecimal strings)
-        segmentList.add(new SegmentRow(0, "Main Code Text", "2500", "0400"));
-        segmentList.add(new SegmentRow(1, "System Stack Space", "5000", "1200"));
+        // --- STEP 3: SPLIT RESPONSIVE VIEWPORTS LAYOUT (MAP VS DIAGNOSTICS) ---
+        GridPane visualGrid = new GridPane();
+        visualGrid.setHgap(15);
+        VBox.setVgrow(visualGrid, Priority.ALWAYS);
 
-        // --- BUTTON INTERACTIVE LOGICS ---
-        btnAddSeg.setOnAction(e -> {
-            try {
-                int id = Integer.parseInt(txtSegId.getText());
-                // Strip out "0x" prefix if user types it manually to avoid parsing crash
-                String baseClean = txtBase.getText().toLowerCase().replace("0x", "");
-                String limitClean = txtLimit.getText().toLowerCase().replace("0x", "");
-                
-                segmentList.add(new SegmentRow(id, txtName.getText(), baseClean, limitClean));
-                txtSegId.clear(); txtName.clear(); txtBase.clear(); txtLimit.clear();
-            } catch (NumberFormatException ex) {
-                // Ignore parsing bounds errors silently
-            }
-        });
+        ColumnConstraints colMap = new ColumnConstraints();
+        colMap.setPercentWidth(42); // Scaled allocation space for Visual Bar blocks
+        ColumnConstraints colLog = new ColumnConstraints();
+        colLog.setPercentWidth(58); // System diagnostics display console logs
+        visualGrid.getColumnConstraints().addAll(colMap, colLog);
 
-        btnTranslate.setOnAction(e -> {
-            try {
-                int targetId = Integer.parseInt(txtTargetSeg.getText());
-                String offsetStr = txtOffset.getText().toLowerCase().replace("0x", "");
-                
-                int offsetInt = Integer.parseInt(offsetStr, 16); // Parsing hex string values
+        // Hardware Real-time scrolling bar canvas layout container
+        ScrollPane mapScroll = new ScrollPane(memoryMapContainer);
+        mapScroll.setFitToWidth(true);
+        mapScroll.setStyle("-fx-background: #1e1f22; -fx-background-color: #1e1f22; -fx-border-color: #3c4043; -fx-border-radius: 4;");
+        memoryMapContainer.setPadding(new Insets(10));
+        memoryMapContainer.setStyle("-fx-background-color: #1e1f22;");
+        VBox.setVgrow(mapScroll, Priority.ALWAYS);
 
-                // Find targeted segment
-                SegmentRow selectedSeg = null;
-                for (SegmentRow row : segmentList) {
-                    if (row.getSegmentId() == targetId) {
-                        selectedSeg = row;
-                        break;
+        // Alphanumeric Terminal Logging Area Workspace config
+        logArea.setEditable(false);
+        logArea.setStyle("-fx-control-inner-background: #151517; -fx-font-family: 'Consolas'; -fx-font-size: 12px; -fx-text-fill: #FBBC05; -fx-border-color: #3c4043; -fx-border-radius: 4;");
+        logArea.setText("⚡ Segmentation Subsystem Initialized.\n[Model-Linked]: Successfully synchronized structural fields with Process.SegmentData context.");
+
+        visualGrid.add(mapScroll, 0, 0);
+        visualGrid.add(logArea, 1, 0);
+        GridPane.setVgrow(mapScroll, Priority.ALWAYS);
+        GridPane.setVgrow(logArea, Priority.ALWAYS);
+
+        // Injection of safe mock data matrices on boot using your model constructors
+        segmentList.add(new SegmentData("Main Code Text (Seg 0)", 2500, 400));
+        segmentList.add(new SegmentData("System Stack Space (Seg 1)", 5000, 1200));
+        updateMemoryVisualMap();
+
+        // --- STEP 4: POPUP EVENTS TRAP LOGICS ---
+
+        // A. Injection dialog launcher
+        btnPopupAdd.setOnAction(e -> {
+            Stage dialog = new Stage();
+            dialog.initModality(Modality.APPLICATION_MODAL);
+            dialog.setTitle("MMU Desk: Register New Segmentation Boundaries");
+
+            VBox pane = new VBox(12);
+            pane.setPadding(new Insets(18));
+            pane.setStyle("-fx-background-color: #202124; -fx-border-color: #34A853; -fx-border-width: 2;");
+
+            Label title = new Label("Inject Descriptor Registry Fields:");
+            title.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;");
+
+            TextField popName = new TextField(); popName.setPromptText("Scope Name (e.g., Code Segment)");
+            TextField popBase = new TextField(); popBase.setPromptText("Base Hex Address (e.g., 2000)");
+            TextField popLimit = new TextField(); popLimit.setPromptText("Limit Hex Size (e.g., 0500)");
+
+            String popTfStyle = "-fx-background-color: #2d2e31; -fx-text-fill: white; -fx-border-color: #3c4043; -fx-border-radius: 3;";
+            popName.setStyle(popTfStyle); popBase.setStyle(popTfStyle); popLimit.setStyle(popTfStyle);
+
+            Button btnInject = new Button("Commit Descriptor to MMU");
+            btnInject.setStyle("-fx-background-color: #34A853; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+            btnInject.setMaxWidth(Double.MAX_VALUE);
+
+            btnInject.setOnAction(evt -> {
+                try {
+                    if (!popName.getText().isEmpty() && !popBase.getText().isEmpty() && !popLimit.getText().isEmpty()) {
+                        String name = popName.getText().trim();
+                        String baseClean = popBase.getText().toLowerCase().replace("0x", "").trim();
+                        String limitClean = popLimit.getText().toLowerCase().replace("0x", "").trim();
+
+                        // Parse string text inputs into standard Base-16 integers cleanly
+                        int baseInt = Integer.parseInt(baseClean, 16);
+                        int limitInt = Integer.parseInt(limitClean, 16);
+
+                        segmentList.add(new SegmentData(name, baseInt, limitInt));
+                        logArea.appendText(String.format("\n[ALLOCATION]: Registered %s -> Base: 0x%X, Limit: 0x%X", 
+                                name, baseInt, limitInt));
+                        
+                        updateMemoryVisualMap();
+                        dialog.close();
                     }
+                } catch (NumberFormatException ex) {
+                    logArea.appendText("\n[REJECTED]: Hex payload configuration corrupted inside popup input context.");
                 }
+            });
 
-                if (selectedSeg == null) {
-                    lblMmuStatus.setText("CRITICAL: Segment ID " + targetId + " not mapped inside descriptor table.");
-                    lblMmuStatus.setStyle("-fx-text-fill: #EA4335;");
-                    return;
-                }
+            pane.getChildren().addAll(title, 
+                new Label("Segment Identifier Title:") {{ setStyle("-fx-text-fill: #9aa0a6;"); }}, popName,
+                new Label("Base Starting Frame Address (Hex String):") {{ setStyle("-fx-text-fill: #9aa0a6;"); }}, popBase,
+                new Label("Limit Boundaries Capacity Range (Hex String):") {{ setStyle("-fx-text-fill: #9aa0a6;"); }}, popLimit, btnInject);
 
-                int baseInt = Integer.parseInt(selectedSeg.getBaseAddress(), 16);
-                int limitInt = Integer.parseInt(selectedSeg.getLimitSize(), 16);
-
-                // TRAP LOGIC CONSTRAINTS CHECK: (Offset must be less than Limit boundary size)
-                if (offsetInt >= limitInt) {
-                    lblMmuStatus.setText(String.format("CRITICAL ERROR: [SEGMENTATION FAULT] Offset 0x%X >= Limit 0x%X! Execution Aborted (SEGV).", 
-                        offsetInt, limitInt));
-                    lblMmuStatus.setStyle("-fx-text-fill: #EA4335; -fx-font-weight: bold;");
-                } else {
-                    // Valid Memory Space Mapping calculation execution
-                    int physicalAddr = baseInt + offsetInt;
-                    lblMmuStatus.setText(String.format("SUCCESS: Logical [Seg: %d, Offset: 0x%X] -> Valid Base Frame! Physical Target Location: 0x%X", 
-                        targetId, offsetInt, physicalAddr));
-                    lblMmuStatus.setStyle("-fx-text-fill: #34A853;");
-                }
-
-            } catch (NumberFormatException ex) {
-                lblMmuStatus.setText("ERROR: Ensure numeric target ID and alphanumeric Hex values are set.");
-                lblMmuStatus.setStyle("-fx-text-fill: #EA4335;");
-            }
+            dialog.setScene(new Scene(pane, 340, 330));
+            dialog.showAndWait();
         });
 
-        Label sectionLabel = new Label("Kernel Segment Descriptor Register Cache:");
-        sectionLabel.setStyle("-fx-text-fill: #FFFFFF; -fx-font-family: 'Segoe UI'; -fx-font-size: 14px; -fx-font-weight: bold;");
+        // B. Translation hardware computation modal
+        btnPopupTranslate.setOnAction(e -> {
+            if (segmentList.isEmpty()) {
+                logArea.appendText("\n[ABORTED]: Relocation query halted. Descriptor table parameters are empty.");
+                return;
+            }
 
-        workspace.getChildren().addAll(mmuPanel, sectionLabel, inputRow, table);
+            Stage dialog = new Stage();
+            dialog.initModality(Modality.APPLICATION_MODAL);
+            dialog.setTitle("Hardware Emulator: Address Relocation Core");
+
+            VBox pane = new VBox(12);
+            pane.setPadding(new Insets(18));
+            pane.setStyle("-fx-background-color: #202124; -fx-border-color: #4285F4; -fx-border-width: 2;");
+
+            Label title = new Label("Translate Address Pointer Mapping Core:");
+            title.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+
+            ComboBox<String> selector = new ComboBox<>();
+            for (SegmentData sd : segmentList) {
+                selector.getItems().add(sd.getSegmentName());
+            }
+            selector.getSelectionModel().selectFirst();
+            selector.setStyle("-fx-background-color: #2d2e31; -fx-text-fill: white;");
+            selector.setMaxWidth(Double.MAX_VALUE);
+
+            TextField popOffset = new TextField();
+            popOffset.setPromptText("Offset Boundary Hex (e.g. 00A5)");
+            popOffset.setStyle("-fx-background-color: #2d2e31; -fx-text-fill: white; -fx-border-color: #3c4043;");
+
+            Button btnCompute = new Button("Execute Transformation Pipeline");
+            btnCompute.setStyle("-fx-background-color: #4285F4; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+            btnCompute.setMaxWidth(Double.MAX_VALUE);
+
+            btnCompute.setOnAction(evt -> {
+                try {
+                    String selectedName = selector.getValue();
+                    String offsetStr = popOffset.getText().toLowerCase().replace("0x", "").trim();
+                    int offsetInt = Integer.parseInt(offsetStr, 16);
+
+                    SegmentData target = segmentList.stream()
+                            .filter(s -> s.getSegmentName().equals(selectedName))
+                            .findFirst().orElse(null);
+
+                    if (target != null) {
+                        int baseInt = target.getBaseAddress();
+                        int limitInt = target.getLimitSize();
+
+                        logArea.appendText("\n\n--- Bus Transaction Logic Cycle ---");
+                        logArea.appendText(String.format("\n[CPU Request]: Target Component: %s, Logical Offset: 0x%X", selectedName, offsetInt));
+                        logArea.appendText(String.format("\n[MMU Hardware Gate Check]: If (Offset: 0x%X < Limit size boundary: 0x%X)", offsetInt, limitInt));
+
+                        // Mathematical Trap Protection constraint check loop execution
+                        if (offsetInt < limitInt) {
+                            int physicalAddr = baseInt + offsetInt;
+                            logArea.appendText("\n[STATUS]: COMPLIANCE PASSED. Offset resides within safe allocation matrix block.");
+                            logArea.appendText(String.format("\n[Formula]: 0x%X (Base) + 0x%X (Offset) = Physical Mapping Location -> 0x%X", baseInt, offsetInt, physicalAddr));
+                            logArea.appendText(String.format("\n🎯 SUCCESS: Address mapped successfully to Physical Cell RAM address => 0x%s", Integer.toHexString(physicalAddr).toUpperCase()));
+                        } else {
+                            logArea.appendText(String.format("\n❌ [TRAP EXCEPTION]: INTERRUPT SIGNAL FIRE -> GENERAL PROTECTION FAULT (SIGSEGV)."));
+                            logArea.appendText(String.format("\n[Reason Violation]: Memory segment bounds breached. Offset 0x%X out of bound limit (0x%X). Execution safe-stopped.", offsetInt, limitInt));
+                        }
+                    }
+                    dialog.close();
+                } catch (Exception ex) {
+                    logArea.appendText("\n[MMU ERROR]: Relocation crashed due to improper verification string hex formatting inputs.");
+                }
+            });
+
+            pane.getChildren().addAll(title, 
+                new Label("Target Segment Descriptor Vector Component:") {{ setStyle("-fx-text-fill: #9aa0a6;"); }}, selector,
+                new Label("Logical Vector Offset Address Pointer (Hex):") {{ setStyle("-fx-text-fill: #9aa0a6;"); }}, popOffset, btnCompute);
+
+            dialog.setScene(new Scene(pane, 360, 260));
+            dialog.showAndWait();
+        });
+
+        // C. Clear Registries control action
+        btnClearCache.setOnAction(e -> {
+            segmentList.clear();
+            logArea.setText("🗑️ Kernel descriptor registries completely purged. MMU set back to factory initialization state.");
+            updateMemoryVisualMap();
+        });
+
+        // --- STEP 5: CLEAN COHESIVE SYSTEM GRAPHICAL WHITE HEADERS ---
+        Label lblControlTitle = new Label("MMU Segmentation Logic Controller Panel Desk:");
+        lblControlTitle.setStyle("-fx-text-fill: white; -fx-font-family: 'Segoe UI'; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        Label lblTableTitle = new Label("Active Memory Segment Table Matrix Descriptor Array Cache:");
+        lblTableTitle.setStyle("-fx-text-fill: white; -fx-font-family: 'Segoe UI'; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        Label lblLowerTitle = new Label("Physical RAM Hardware Memory Frame Map Layout vs. Real-Time Diagnostics:");
+        lblLowerTitle.setStyle("-fx-text-fill: white; -fx-font-family: 'Segoe UI'; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        workspace.getChildren().addAll(
+            lblControlTitle, controlRow,
+            new Region() {{ setPrefHeight(2); }},
+            lblTableTitle, table,
+            new Region() {{ setPrefHeight(2); }},
+            lblLowerTitle, visualGrid
+        );
+    }
+
+    // --- RE-RENDER PROGRESSIVE GRAPHICAL COLOR-SEGMENTED BAR STACK MATRIX ---
+    private void updateMemoryVisualMap() {
+        memoryMapContainer.getChildren().clear();
+
+        if (segmentList.isEmpty()) {
+            VBox emptyContainer = new VBox();
+            emptyContainer.setAlignment(Pos.CENTER);
+            emptyContainer.setPadding(new Insets(40, 0, 40, 0));
+            Label lblEmpty = new Label("🔒 NO SEGMENTS MAPPED\nPhysical Memory Space Cleared");
+            lblEmpty.setStyle("-fx-text-fill: #5f6368; -fx-font-family: 'Segoe UI'; -fx-font-weight: bold; -fx-text-alignment: center;");
+            emptyContainer.getChildren().add(lblEmpty);
+            memoryMapContainer.getChildren().add(emptyContainer);
+            return;
+        }
+
+        // Generate layered visual block nodes maps context
+        int colorCounter = 0;
+        for (SegmentData sd : segmentList) {
+            try {
+                int baseVal = sd.getBaseAddress();
+                int limitVal = sd.getLimitSize();
+                int endVal = baseVal + limitVal;
+
+                VBox segmentBarCell = new VBox(3);
+                segmentBarCell.setPadding(new Insets(10));
+                
+                // Toggle hex visual block colors based on counter tracking indexes
+                String themeColor = (colorCounter % 2 == 0) ? "#1a73e8" : "#9b59b6";
+                String borderCol = (colorCounter % 2 == 0) ? "#4285F4" : "#af7ac5";
+                colorCounter++;
+                
+                segmentBarCell.setStyle(String.format(
+                    "-fx-background-color: %s; -fx-background-radius: 5; -fx-border-color: %s; -fx-border-width: 1;", 
+                    themeColor, borderCol
+                ));
+
+                Label lblHeaderName = new Label(String.format("🔹 Component Scope: %s", sd.getSegmentName()));
+                lblHeaderName.setStyle("-fx-text-fill: white; -fx-font-family: 'Segoe UI'; -fx-font-weight: bold; -fx-font-size: 12px;");
+
+                Label lblRangeMatrix = new Label(String.format("Hex Bounds: 0x%X ─── [Limit Window: 0x%X] ───> End Target: 0x%X", 
+                        baseVal, limitVal, endVal));
+                lblRangeMatrix.setStyle("-fx-text-fill: #e8eaed; -fx-font-family: 'Consolas'; -fx-font-size: 11px;");
+
+                segmentBarCell.getChildren().addAll(lblHeaderName, lblRangeMatrix);
+                memoryMapContainer.getChildren().add(segmentBarCell);
+
+            } catch (Exception ex) {
+                // Fail-safe protection boundary catch blocks skip
+            }
+        }
     }
 }

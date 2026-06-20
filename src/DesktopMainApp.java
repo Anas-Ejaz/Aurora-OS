@@ -9,6 +9,7 @@ import javafx.stage.Stage;
 import SystemMonitor.SystemMonitorWindow;
 import CoreOSModules.ModulesOverlay;
 import Schedulings.AppLauncherOverlay;
+import Process.ProcessManagerWindow; // NAYA IMPORT
 
 public class DesktopMainApp extends Application {
 
@@ -31,19 +32,21 @@ public class DesktopMainApp extends Application {
         desktopLayoutContainer.getChildren().add(systemTaskbar);
 
         // --- BUTTONS ---
+        Button btnProcessManager = createDesktopSystemButton("Process Manager", "#107c41"); // NAYA CRUD BUTTON (Green Accent)
         Button btnSchedulings = createDesktopSystemButton("Schedulings", "#0078d4");
-        Button btnModules = createDesktopSystemButton("Core Modules", "#0078d4"); // NAYA BUTTON
+        Button btnModules = createDesktopSystemButton("Core Modules", "#0078d4"); 
         Button btnApps = createDesktopSystemButton("System Monitor", "#0078d4");
         Button btnPowerOff = createDesktopSystemButton("Power Off", "#d13438");
 
         // --- ACTIONS ---
+        btnProcessManager.setOnAction(e -> triggerProcessManagerWindow()); // NAYA ACTION
         btnSchedulings.setOnAction(e -> triggerSchedulingsOverlay());
-        btnModules.setOnAction(e -> triggerModulesOverlay()); // NAYA ACTION
+        btnModules.setOnAction(e -> triggerModulesOverlay()); 
         btnApps.setOnAction(e -> triggerSystemMonitorWindow());
         btnPowerOff.setOnAction(e -> Platform.exit());
 
-        // Buttons ko taskbar mein add karna (Modules ko center mein rakha hai)
-        systemTaskbar.getChildren().addAll(btnSchedulings, btnModules, btnApps, btnPowerOff);
+        // Buttons ko taskbar mein add karna (Process Manager ko sabse pehle rakha hai)
+        systemTaskbar.getChildren().addAll(btnProcessManager, btnSchedulings, btnModules, btnApps, btnPowerOff);
         mainDesktopCanvas.getChildren().add(desktopLayoutContainer);
 
         Scene mainScene = new Scene(mainDesktopCanvas, 1100, 750);
@@ -52,7 +55,14 @@ public class DesktopMainApp extends Application {
         primaryStage.show();
     }
 
-    // NAYA FUNCTION: Modules Overlay kholne ke liye
+    // NAYA FUNCTION: Process Manager CRUD Window kholne ke liye
+    private void triggerProcessManagerWindow() {
+        ProcessManagerWindow managerWindow = new ProcessManagerWindow(mainDesktopCanvas);
+        if(mainDesktopCanvas.getChildren().stream().noneMatch(node -> node instanceof ProcessManagerWindow)) {
+            mainDesktopCanvas.getChildren().add(managerWindow);
+        }
+    }
+
     private void triggerModulesOverlay() {
         ModulesOverlay modulesMenu = new ModulesOverlay(mainDesktopCanvas);
         if(mainDesktopCanvas.getChildren().stream().noneMatch(node -> node instanceof ModulesOverlay)) {
