@@ -15,10 +15,15 @@ public class ProcessData {
     private final SimpleStringProperty id;
     private final SimpleIntegerProperty arrivalTime;
     private final SimpleIntegerProperty burstTime;
-    private final SimpleIntegerProperty priority;       // Added for Priority Scheduling
-    private final SimpleIntegerProperty remainingTime;   // Added for Round Robin / SRTF
+    private final SimpleIntegerProperty priority;       
+    private final SimpleIntegerProperty remainingTime;   
     private final SimpleIntegerProperty waitingTime;
     private final SimpleIntegerProperty turnaroundTime;
+
+    // --- PCB EXTRA FIELDS ADDED HERE ---
+    private final SimpleStringProperty state;
+    private final SimpleStringProperty pc;
+    private final SimpleStringProperty memory;
 
     // Constructor
     public ProcessData(String id, int arrivalTime, int burstTime, int priority, int waitingTime, int turnaroundTime) {
@@ -29,9 +34,26 @@ public class ProcessData {
         this.remainingTime = new SimpleIntegerProperty(burstTime);
         this.waitingTime = new SimpleIntegerProperty(waitingTime);
         this.turnaroundTime = new SimpleIntegerProperty(turnaroundTime);
+        
+        // Default PCB values sets dynamically based on ID
+        this.state = new SimpleStringProperty("READY");
+        this.pc = new SimpleStringProperty("0x0040" + String.format("%02X", (int)(Math.random() * 255)));
+        this.memory = new SimpleStringProperty(((int)(Math.random() * 4) + 1) * 128 + "MB");
     }
 
-    // --- GETTERS, SETTERS & PROPERTIES ---
+    // --- PCB GETTERS, SETTERS & PROPERTIES ---
+    public String getState() { return state.get(); }
+    public void setState(String newState) { this.state.set(newState); }
+    public SimpleStringProperty stateProperty() { return state; }
+
+    public String getPc() { return pc.get(); }
+    public void setPc(String newPc) { this.pc.set(newPc); }
+    public SimpleStringProperty pcProperty() { return pc; }
+
+    public String getMemory() { return memory.get(); }
+    public SimpleStringProperty memoryProperty() { return memory; }
+
+    // --- ORIGINAL GETTERS & SETTERS ---
     public String getId() { return id.get(); }
     public void setId(String newId) { this.id.set(newId); }
     public SimpleStringProperty idProperty() { return id; }

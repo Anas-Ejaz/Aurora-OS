@@ -20,7 +20,7 @@ public class ModulesOverlay extends StackPane {
         // Main Container (The Glass Folder Panel)
         VBox folderContent = new VBox(35);
         folderContent.setAlignment(Pos.CENTER);
-        folderContent.setMaxSize(850, 520);
+        folderContent.setMaxSize(850, 560); // Adjusted height constraint to handle additional rows safely
         folderContent.setPadding(new Insets(40));
         
         // Glassmorphism design for the folder panel
@@ -49,6 +49,9 @@ public class ModulesOverlay extends StackPane {
         tilesGrid.add(createGlassModuleTile("Mem Management", "#9C27B0"), 0, 1);
         tilesGrid.add(createGlassModuleTile("IPC Stream", "#FF5722"), 1, 1);
         tilesGrid.add(createGlassModuleTile("Synchronization", "#22c0ff"), 2, 1);
+        
+        // Naya badlao: Grid row index 2 par LRU Tile Block integrate kiya hai
+        tilesGrid.add(createGlassModuleTile("LRU Page Engine", "#00E676"), 1, 2);
 
         // Glass Styled Close Button
         Button btnClose = new Button("Back to Desktop");
@@ -123,16 +126,20 @@ public class ModulesOverlay extends StackPane {
                     parentCanvas.getChildren().add(new PagingWindow(parentCanvas));
                     break;
                 case "Segmentation":
-                    parentCanvas.getChildren().add(new SegmentationWindow(parentCanvas)); // LINKED!
+                    parentCanvas.getChildren().add(new SegmentationWindow(parentCanvas)); 
                     break;
                 case "Mem Management":
-                    parentCanvas.getChildren().add(new MemoryManagementWindow(parentCanvas)); // LINKED!
+                    parentCanvas.getChildren().add(new MemoryManagementWindow(parentCanvas)); 
                     break;
                 case "IPC Stream":
-                    parentCanvas.getChildren().add(new IpcWindow(parentCanvas)); // LINKED!
+                    parentCanvas.getChildren().add(new IpcWindow(parentCanvas)); 
                     break;
                 case "Synchronization":
-                    parentCanvas.getChildren().add(new SynchronizationWindow(parentCanvas)); // LINKED!
+                    parentCanvas.getChildren().add(new SynchronizationWindow(parentCanvas)); 
+                    break;
+                // Naya badlao: LRU window navigation path mapping connect ki h
+                case "LRU Page Engine":
+                    parentCanvas.getChildren().add(new LruPageReplacementWindow(parentCanvas));
                     break;
             }
         });
